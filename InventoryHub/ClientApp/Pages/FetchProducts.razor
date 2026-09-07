@@ -1,0 +1,79 @@
+@page "/fetchproducts"
+@inject HttpClient Http
+
+<h3>Product List</h3>
+
+@* Copilot helped structure the loading, error, and successful-result states below. *@
+<ul>
+   @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <li class="text-danger">@errorMessage</li>
+    }
+    else if (products != null)
+    {
+        foreach (var product in products)
+        {
+            <li>@product.Name - $@product.Price - Category: @product.Category?.Name</li>
+        }
+    }
+    else
+    {
+        <li>Loading...</li>
+    }
+</ul>
+
+@code {
+    // Holds the products returned by the API; null indicates that loading is still in progress.
+    private Product[]? products;
+
+    // Stores a user-friendly message when the product request cannot be completed.
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Copilot helped add timeout and error-handling safeguards around the API request.
+            // Prevent the page from waiting indefinitely for an unresponsive API.
+            using var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            products = await Http.GetFromJsonAsync<Product[]>("http://localhost:5041/api/productlist", cancellationTokenSource.Token);
+
+            // Treat a null response as an invalid API result rather than a successful load.
+            if (products is null)
+            {
+                errorMessage = "The API returned an invalid product response.";
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // This includes requests cancelled because the timeout was reached.
+            errorMessage = "The request timed out. Please try again.";
+        }
+        catch (HttpRequestException)
+        {
+            // Handle network and HTTP errors without exposing technical details to the user.
+            errorMessage = "Unable to load products. Please try again later.";
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            // Handle responses that cannot be deserialized into the Product model.
+            errorMessage = "The API returned an invalid product response.";
+        }
+    }
+
+    // Represents the product fields expected from the products API.
+    public class Product
+    {
+        public int Id { get; set; }
+        public string? Name { get; set; }
+        public double Price { get; set; }
+        public int Stock { get; set; }
+        public Category? Category { get; set; }
+    }
+    
+    public class Category
+    {
+        public int Id { get; set; }
+        public string? Name { get; set; }   
+    }
+}
